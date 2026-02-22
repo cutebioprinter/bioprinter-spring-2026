@@ -5,6 +5,16 @@ import sys
 import os
 import cv2
 
+resistance = 3576
+offset = 816
+flowconstant = 1.1 #multiplier to place more bioink
+
+def flowrate_to_pressure(flowrate):
+    return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
+                                                                          # minimum pressure instead
+                                                                          # of turning off
+
+
 printer_port = "/dev/ttyACM0"
 printer_bps = 115200
 pump_port = "/dev/ttyS0"
@@ -44,7 +54,7 @@ with serial.Serial(printer_port, printer_bps) as printer, serial.Serial(pump_por
                 print("Printer Message: " + msg.decode())
                 if msg.startswith(b"@pump_pressure"):
                     words = msg.split()
-                    send_pump_command(pump, int(words[1]), int(words[2]))
+                    send_pump_command(pump, int(words[1]), flowrate_to_pressure(int(words[2])))
                 if msg.startswith(b"@pic"):
                     print("taking pic!")
                     ret, frame = cap.read()
