@@ -6,15 +6,10 @@ import os
 
 filament_area = math.pi * (0.5 ** 2) # For 1.75mm filament, but 0.5^2 / 1.75mm^2, reversing the math for 1.75mm filament
 
-## Write logic to determine this from slicer
-resistance = 3576
-offset = 816
-flowconstant = 1.1 #multiplier to place more bioink
-
 gcode_commands = [] 
 
 def flowrate_to_pressure(flowrate):
-    return int((flowrate * resistance) + offset) if flowrate != 0 else 10 # if no flowrate, set to
+    return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
                                                                           # minimum pressure instead
                                                                           # of turning off
 
@@ -62,13 +57,13 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
             distance = math.dist(current_position, (x,y,z))
 
             try:
-                flowrate = filament_area * e * (f/60) / distance * flowconstant
+                flowrate = filament_area * e * (f/60) / distance
             except: # ensure this is correct
-                flowrate = filament_area * (f/60) * flowconstant if e != 0 else 0 # if no extruder movement, 0 flowrate
+                flowrate = filament_area * (f/60) if e != 0 else 0 # if no extruder movement, 0 flowrate
 			
             if abs(flowrate - current_flowrate) > (0.0001+0.03*current_flowrate): # if new flowrate is significantly different
                 gcode_commands.append("G4\n") # This line may not be necessary when printing from SD
-                gcode_commands.append(f"M118 S\"@pump_pressure 0 {flowrate_to_pressure(flowrate)}\"\n")
+                gcode_commands.append(f"M118 S\"@pump_pressure 0 {flowrate}\"\n")
                 #press_cmd = get_pump_command(0, flowrate_to_pressure(flowrate))  # for later
                 #gcode_commands.append(f"M260.2 P1 B{press_cmd[0]}:{press_cmd[1]}")
                 current_flowrate = flowrate
