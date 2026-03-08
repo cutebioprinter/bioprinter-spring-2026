@@ -5,16 +5,6 @@ import sys
 import os
 import cv2
 
-resistance = 3576
-offset = 816
-flowconstant = 1.1 #multiplier to place more bioink
-
-def flowrate_to_pressure(flowrate):
-    return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
-                                                                          # minimum pressure instead
-                                                                          # of turning off
-
-
 printer_port = "/dev/ttyACM0"
 printer_bps = 115200
 pump_port = "/dev/ttyS0"
@@ -24,6 +14,14 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 frame_counter = 0
 PHOTO_FOLDER = '/home/pi/timelapse_frames'
+
+## Write logic to determine this from slicer
+resistance = 3576
+offset = 816
+flowconstant = 1.1 #multiplier to place more bioink
+def flowrate_to_pressure(flowrate):
+	return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
+ 
 
 if "--printer-port" in sys.argv:
     printer_port = sys.argv[sys.argv.index("--printer-port") + 1]
@@ -68,3 +66,4 @@ with serial.Serial(printer_port, printer_bps) as printer, serial.Serial(pump_por
                 continue
             #finally:
                 #cap.release()
+
