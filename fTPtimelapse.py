@@ -20,7 +20,7 @@ resistance = 3576
 offset = 816
 flowconstant = 1.1 #multiplier to place more bioink
 def flowrate_to_pressure(flowrate):
-	return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
+	return int(((flowrate/2^14 * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
  
 
 if "--printer-port" in sys.argv:
