@@ -8,21 +8,22 @@ filament_area = math.pi * (0.5 ** 2) # For 1.75mm filament, but 0.5^2 / 1.75mm^2
 
 gcode_commands = [] 
 
-def flowrate_to_pressure(flowrate):
-    return int(((flowrate * resistance) + offset)*flowconstant) if flowrate != 0 else 10 # if no flowrate, set to
+def flowrate_to_int(flowrate):
+	return int(flowrate*2^14); #match with forward to pump code.
+    ##return int((flowrate * resistance) + offset) if flowrate != 0 else 10 # if no flowrate, set to
                                                                           # minimum pressure instead
                                                                           # of turning off
 
-def get_pump_command(channel, pressure):
-    if pressure > 2068:
+def get_pump_command(channel, flowrate64):
+    if flowrate64 > 4095:
         #print(f"Requested pressure of {pressure} too high, Pump Command: channel {channel} at 2068 mbar")
-        pressure = 2068
+        flowrate64 = 4095
     #else:
         #print(f"Pump Command: channel {channel} at {pressure} mbar")
     command = 0x80 # mask 0ccxxxxx 1xxxxxxx
     command |= (channel << 13) & 0x6000
-    command |= (pressure << 1) & 0x1F00
-    command |= pressure & 0x007F
+    command |= (flowrate64 << 1) & 0x1F00
+    command |= flowrate64 & 0x007F
     return command.to_bytes(2, 'big')
 
 # Ideally this logic would be passed to the pressure pump
@@ -63,7 +64,7 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
 			
             if abs(flowrate - current_flowrate) > (0.0001+0.03*current_flowrate): # if new flowrate is significantly different
                 gcode_commands.append("G4\n") # This line may not be necessary when printing from SD
-                gcode_commands.append(f"M118 S\"@pump_pressure 0 {flowrate}\"\n")
+                gcode_commands.append(f"M118 S\"@pump_pressure 0 {flowrate_to_int(flowrate)}\"\n")
                 #press_cmd = get_pump_command(0, flowrate_to_pressure(flowrate))  # for later
                 #gcode_commands.append(f"M260.2 P1 B{press_cmd[0]}:{press_cmd[1]}")
                 current_flowrate = flowrate
