@@ -135,16 +135,13 @@ def build_trajectory(filepath):
 
 # -------- SEND COMMAND --------
 def send_pump_command(ser, channel, pressure):
-
     if pressure > 2068:
-        pressure = 2068
-
-    command = 0x80
-    command |= (channel << 13) & 0x03
-    command |= (pressure << 1) & 0x1F00
-    command |= pressure & 0x007F
-
-    ser.write(command.to_bytes(2))
+	    pressure = 2068
+    command_to_send = 0x80 # mask 0ccx xxxx 1xxx xxxx
+    command_to_send |= (channel << 13) & 0x6000
+    command_to_send |= (pressure << 1) & 0x1F00
+    command_to_send |= pressure & 0x007F
+    ser.write(command_to_send.to_bytes(2))
 
 
 # -------- REAL-TIME EXECUTION --------
@@ -156,7 +153,7 @@ def run_trajectory(time_array, pressure_array, sync_map):
         i = 0
         start_time = time.time()
         N = len(time_array)
-
+        lastvals = [10,10,10];
         while True:
 
             # ---- HANDLE SYNC FROM PRINTER ----
@@ -182,11 +179,24 @@ def run_trajectory(time_array, pressure_array, sync_map):
             # ---- TIME-BASED PLAYBACK ----
             t_now = time.time() - start_time
             t_target = t_now + LOOKAHEAD
-
+			
+            
             while i < N and time_array[i] <= t_target:
 
-                for ch in range(3):
-                    send_pump_command(pump, ch, int(pressure_array[i][ch]))
+                
+                if (abs(lastvals[0]-pressure_array[i][0]) > 10):
+                    send_pump_command(pump, 0, int(pressure_array[i][0]))
+                    print(0, int(pressure_array[i][0]))
+                    lastvals[0] = int(pressure_array[i][0])
+                if (abs(lastvals[1]-pressure_array[i][1]) > 10):
+                    send_pump_command(pump, 1, int(pressure_array[i][1]))
+                    print(1, int(pressure_array[i][1]))
+                    lastvals[1] = int(pressure_array[i][1])
+                if (abs(lastvals[2]-pressure_array[i][2]) > 10):
+                    send_pump_command(pump, 2, int(pressure_array[i][2]))
+                    print(2, int(pressure_array[i][2]))
+                    lastvals[2] = int(pressure_array[i][2])
+                
 
                 i += 1
 
@@ -203,6 +213,7 @@ if __name__ == "__main__":
 
     print("Trajectory length:", len(time_array))
     print("Sync markers:", sync_map)
-
+    print(pressure_array)
     print("Running...")
     run_trajectory(time_array, pressure_array, sync_map)
+
