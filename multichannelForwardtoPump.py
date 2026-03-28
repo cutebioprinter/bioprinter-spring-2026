@@ -17,17 +17,13 @@ printer_bps = 115200
 pump_port = "/dev/ttyS0"
 pump_bps = 9600
 
+def flowrate_to_pressure(flowratex,flowratey,flowratez): #may need to add node pressure
+    return flowratex*1000,flowratey*1000,flowratez*1000 #need actual algorithm
 
-# -------- CALIBRATION --------
-resistance = 3576
-offset = 816
-flowconstant = 1.1
-
-def flowrate_to_pressure(flowrate):
+def flowrate214_to_flowrate(flowrate):
     if flowrate == 0:
         return 10
-    return int(((flowrate / (2**14) * resistance) + offset) * flowconstant)
-
+    return int(flowrate / (2**14))
 
 # -------- GRADIENT FUNCTION --------
 def gradient(x, y, z):
@@ -46,6 +42,7 @@ def build_trajectory(filepath):
 
     time_array = []
     mix_array = []
+    flow_array = []
     sync_map = {}
 
     x = y = z = 0
@@ -72,7 +69,8 @@ def build_trajectory(filepath):
             # -------- PUMP COMMAND --------
             pump_match = re.search(r'@pump_pressure\s+\d+\s+([-+]?[0-9]*\.?[0-9]+)', line)
             if pump_match:
-                flowrate = float(pump_match.group(1))
+                flowrate = flowrate214_to_flowrate(float(pump_match.group(1)))
+                
                 continue
 
             # -------- FEEDRATE --------
@@ -116,6 +114,7 @@ def build_trajectory(filepath):
 
                     time_array.append(interp_time)
                     mix_array.append(mix)
+                    flow_array.append(mix*flowrate)
 
                 current_time += dt_move
                 x, y, z = new_x, new_y, new_z
@@ -123,14 +122,9 @@ def build_trajectory(filepath):
 
     time_array = np.array(time_array)
     mix_array = np.array(mix_array)
+    flow_array = np.array(flow_array)
 
-    # -------- FLOW --------
-    flow_array = mix_array * TOTAL_FLOW_SCALE
-
-    # -------- PRESSURE --------
-    pressure_array = np.vectorize(flowrate_to_pressure)(flow_array)
-
-    return time_array, pressure_array, sync_map
+    return time_array, flow_array, sync_map
 
 
 # -------- SEND COMMAND --------
@@ -145,7 +139,7 @@ def send_pump_command(ser, channel, pressure):
 
 
 # -------- REAL-TIME EXECUTION --------
-def run_trajectory(time_array, pressure_array, sync_map):
+def run_trajectory(time_array, flow_array, sync_map):
 
     with serial.Serial(printer_port, printer_bps) as printer, \
          serial.Serial(pump_port, pump_bps, timeout=4) as pump:
@@ -182,20 +176,20 @@ def run_trajectory(time_array, pressure_array, sync_map):
 			
             
             while i < N and time_array[i] <= t_target:
-
+                pressure_array = flowrate_to_pressure(flow_array[i][0],flow_array[i][1],flow_array[i][2])
                 
-                if (abs(lastvals[0]-pressure_array[i][0]) > 10):
-                    send_pump_command(pump, 0, int(pressure_array[i][0]))
-                    print(0, int(pressure_array[i][0]))
-                    lastvals[0] = int(pressure_array[i][0])
-                if (abs(lastvals[1]-pressure_array[i][1]) > 10):
-                    send_pump_command(pump, 1, int(pressure_array[i][1]))
-                    print(1, int(pressure_array[i][1]))
-                    lastvals[1] = int(pressure_array[i][1])
-                if (abs(lastvals[2]-pressure_array[i][2]) > 10):
-                    send_pump_command(pump, 2, int(pressure_array[i][2]))
-                    print(2, int(pressure_array[i][2]))
-                    lastvals[2] = int(pressure_array[i][2])
+                if (abs(lastvals[0]-pressure_array[0]) > 10):
+                    send_pump_command(pump, 0, int(pressure_array[0]))
+                    print(0, int(pressure_array[0]))
+                    lastvals[0] = int(pressure_array[0])
+                if (abs(lastvals[1]-pressure_array[1]) > 10):
+                    send_pump_command(pump, 1, int(pressure_array[1]))
+                    print(1, int(pressure_array[1]))
+                    lastvals[1] = int(pressure_array[1])
+                if (abs(lastvals[2]-pressure_array[2]) > 10):
+                    send_pump_command(pump, 2, int(pressure_array[2]))
+                    print(2, int(pressure_array[2]))
+                    lastvals[2] = int(pressure_array[2])
                 
 
                 i += 1
@@ -209,11 +203,10 @@ if __name__ == "__main__":
     gcode_file = "flowrateinttest.gcode"
 
     print("Building trajectory...")
-    time_array, pressure_array, sync_map = build_trajectory(gcode_file)
+    time_array, flow_array, sync_map = build_trajectory(gcode_file)
 
     print("Trajectory length:", len(time_array))
     print("Sync markers:", sync_map)
-    print(pressure_array)
     print("Running...")
-    run_trajectory(time_array, pressure_array, sync_map)
+    run_trajectory(time_array, flow_array, sync_map)
 
