@@ -9,7 +9,7 @@ def gradient(x, y, z):
 
     a = np.clip((x-60)/50,0,1)
     b = np.clip((y-22)/50,0,1)
-    c = 1 - a - b
+    c = 2*z
     c = np.clip(c,0,1)
 
     total = a+b+c
@@ -151,6 +151,6 @@ def visualize(position_array, mix_array):
     
 if __name__ == "__main__":
 
-    time_array, position_array, mix_array = parse_gcode("Desktop/flowrateinttest.gcode")
+    time_array, position_array, mix_array = parse_gcode("Shape-Cylinder.gcode")
 
     visualize(position_array, mix_array)
